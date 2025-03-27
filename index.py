@@ -1,24 +1,48 @@
 import requests
 import re
 from bs4 import BeautifulSoup
+import time
+import zipfile
+import os
 
-soup = BeautifulSoup(
-    requests.get('https://www.gov.br/ans/pt-br/acesso-a-informacao/participacao-da-sociedade/atualizacao-do-rol-de-procedimentos').content, 
-    'html.parser'
-)
+def main(url: str):
 
-keyword = input("🔎 Enter the word to search in the links: ").strip()
+    more = True
+    files = []
+    a = requests.get(url).content
+    while more:
 
-if keyword:    
-    links = [element for element in soup.find_all('a') if element.string and re.compile(rf'\b\w*{re.escape(keyword)}\w*\b', re.IGNORECASE).search(element.string)]
-    
-    if links:
+        name = input(f"📶 {url}\n🔎 Enter the word to search in the links: ") or 'name'
+        links = [element for element in BeautifulSoup(a, "html.parser").find_all("a") if element.string and re.compile(rf"\b\w*{re.escape(name)}\w*\b", re.IGNORECASE).search(element.string)]
+        print(links)
+        if not links:
+            exit("\n❌ No links found for that keyword.")
+
         print("\n🔗 Links found:")
-        for link in links:
-            print(f"- {link.get_text(strip=True)} → {link.get('href')}")
-        index = int(input(f"🔗 You can download it by the corresponding index (0 a {len(links) - 1}): "))
-        print(links[index].get('href'))
-    else:
-        print("\n❌ No links found for that keyword.")
-else:
-    print("⚠️ Keyword cannot be empty!")
+
+        for i, link in enumerate(links):
+            print(f"[{i}] {link.get_text(strip=True)} → {link.get('href')}")
+
+        try:    
+
+            url = links[int(input(f"\n🔗 Choose an index to download (0 - {len(links) - 1}): "))].get("href")
+            ext = url.split(".")[-1]
+            name = f"{name}.{round(time.time(), 2)}.{ext}"
+
+            with open(f"scraping/{name}", "wb") as file:
+                file.write(requests.get(url).content)
+            print(f"\n✅ Download completed: /scraping/{name}")
+            files.append(name)
+        except (ValueError, IndexError):
+            print("\n⚠️ Invalid index selection!")
+        
+        more = input("🔄 Do you want to continue? (1 - Yes / 2 - No) ") == "1"
+    compact = (input("Você deseja compactar tudo em um arquivo .zip?") == '1') if files else False
+    if(compact):
+        with zipfile.ZipFile("data.zip", "a") as compact:        
+            for file in os.listdir("scraping"):
+                compact.write(f"scraping/{name}")
+        
+
+if __name__ == '__main__':
+    main((input('🌐 Enter the URL for scraping: ') or 'https://www.gov.br/ans/pt-br/acesso-a-informacao/participacao-da-sociedade/atualizacao-do-rol-de-procedimentos'))
