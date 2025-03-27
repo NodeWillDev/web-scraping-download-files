@@ -5,15 +5,22 @@ import time
 import zipfile
 import os
 
-def main(url: str):
+def resolveUrl(url: str) -> requests.Response | None:
+    try:
+        return requests.get(url)
+    except requests.RequestException as e:
+        print(f"❌ Invalid URL: {e}")
+        return None
+
+def main(url: str) -> None:
 
     more = True
     files = []
-    data = requests.get(url).content
-    while more:
+    data = resolveUrl(url)
+    while more and data:
 
         name = input(f"📶 {url}\n🔎 Enter the word to search in the links: ") or 'name'
-        links = [element for element in BeautifulSoup(data, "html.parser").find_all("a") if element.string and re.compile(rf"\b\w*{re.escape(name)}\w*\b", re.IGNORECASE).search(element.string)]        
+        links = [element for element in BeautifulSoup(data.content, "html.parser").find_all("a") if element.string and re.compile(rf"\b\w*{re.escape(name)}\w*\b", re.IGNORECASE).search(element.string)]        
         if not links:
             exit("\n❌ No links found for that keyword.")
 
@@ -35,7 +42,7 @@ def main(url: str):
             print("\n⚠️ Invalid index selection!")
         
         more = input("🔄 Do you want to continue? (1 - Yes / 2 - No) ") == "1"
-    compact = (input("📦 Do you want to compress everything into a .zip file? (1 1 Yes / 2 - No)") == '1') if files else False
+    compact = (input("📦 Do you want to compress everything into a .zip file? (1 Yes / 2 - No): ") == '1') if files else False
 
     if(compact):
         with zipfile.ZipFile(f"compact-{time.time():.2f}.zip", "a") as compact:
